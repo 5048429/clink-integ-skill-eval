@@ -1,0 +1,532 @@
+{
+  "metadata": {
+    "name": "Clink integration capability matrix",
+    "version": 1,
+    "description": "Ability-focused evaluation for local clink-integ-skills. This matrix is independent from official upstream tests.",
+    "standards": [
+      "CLI-first payment integration guidance.",
+      "Dashboard Webhooks only as fallback, manual, legacy, or visibility path.",
+      "Docs-gated answers for exact API/resource claims.",
+      "Sandbox by default; production requires validation.",
+      "Webhook safety requires endpoint registration, event scope, signing secret sync, restart or redeploy, timestamp/signature checks, idempotency, retry safety, and out-of-order tolerance.",
+      "Agent integrations must not collapse into plain hosted checkout redirects.",
+      "Negative non-Clink payment prompts should not trigger Clink-specific routing."
+    ]
+  },
+  "cases": [
+    {
+      "id": "std-hosted-checkout-webhook-cli",
+      "category": "standard",
+      "capability": "Hosted checkout plus webhook, CLI-first",
+      "prompt": "Help this Node/React merchant integrate Clink sandbox hosted checkout. Add POST /api/clink/checkout-session and POST /api/clink/webhook. Use clink-dev-cli, clink webhook endpoint ensure --events core --save-secret, sync CLINK_WEBHOOK_SIGNING_KEY, restart the service, verify raw body signatures, and reconcile merchantReferenceId plus sessionId.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "environment": "sandbox",
+        "artifactsAll": ["integration_checklist", "webhook_endpoint_automation", "signing_secret_sync", "merchant_order_mapping"],
+        "notesInclude": ["merchantReferenceId", "clink webhook endpoint ensure"]
+      }
+    },
+    {
+      "id": "std-implementation-without-stack",
+      "category": "standard",
+      "capability": "Implementation request asks for missing backend stack",
+      "prompt": "Help me implement Clink checkout session creation on my backend.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "routeConfidenceIn": ["medium", "low"],
+        "questionsInclude": ["backend language", "registered product mode"],
+        "artifactsAll": ["implementation_todo"]
+      }
+    },
+    {
+      "id": "std-express-stack-inference",
+      "category": "standard",
+      "capability": "Infer backend stack from local context",
+      "prompt": "Help me implement Clink checkout session creation in this service.",
+      "contextBlocks": [
+        {
+          "title": "package.json",
+          "content": "{\n  \"name\": \"merchant-app\",\n  \"type\": \"module\",\n  \"dependencies\": {\n    \"express\": \"^5.0.0\"\n  }\n}"
+        }
+      ],
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "stack": { "language": "Node.js", "framework": "Express" },
+        "questionsNotInclude": ["backend language"]
+      }
+    },
+    {
+      "id": "std-local-secret-bootstrap",
+      "category": "standard",
+      "capability": "Local desktop Secret Key bootstrap",
+      "prompt": "I am on a local desktop and do not have a Clink Secret Key yet. Guide me through clink login, dashboard whoami, dashboard apikey ensure-secret --save --json, and then continue with Secret Key API commands.",
+      "expect": {
+        "expectedTrigger": true,
+        "routeIn": ["merchant_standard_integration", "merchant_new_user_onboarding"],
+        "artifactsAny": ["secret_setup_checklist", "cli_setup_checklist", "cli_capability_checklist"],
+        "notesNotInclude": ["Dashboard Console token"]
+      }
+    },
+    {
+      "id": "std-browserless-secret-key",
+      "category": "standard",
+      "capability": "Browserless Secret Key setup",
+      "prompt": "This is a browserless cloud IDE. I can provide CLINK_SECRET_KEY as an environment variable. Configure clink auth secret set --api-key env:CLINK_SECRET_KEY --env sandbox, but do not ask me for CLINK_WEBHOOK_SIGNING_KEY.",
+      "expect": {
+        "expectedTrigger": true,
+        "routeIn": ["merchant_standard_integration", "merchant_new_user_onboarding"],
+        "artifactsAny": ["secret_setup_checklist", "cli_setup_checklist", "cli_capability_checklist"],
+        "notesNotInclude": ["ask for CLINK_WEBHOOK_SIGNING_KEY"]
+      }
+    },
+    {
+      "id": "std-webhook-endpoint-automation",
+      "category": "standard",
+      "capability": "Webhook endpoint automation",
+      "prompt": "Help me register and verify the Clink webhook endpoint. Prefer clink webhook endpoint ensure --url https://example.com/api/clink/webhook --events core --save-secret --json, sync CLINK_WEBHOOK_SIGNING_KEY into the app runtime, restart or redeploy, and rerun ensure when the URL changes.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "artifactsAll": ["webhook_endpoint_automation", "signing_secret_sync"],
+        "notesInclude": ["clink webhook endpoint ensure"]
+      }
+    },
+    {
+      "id": "std-dashboard-fallback-not-primary",
+      "category": "standard",
+      "capability": "Dashboard Webhooks fallback wording",
+      "prompt": "We have a legacy dashboard note: Merchant Dashboard > Developers > Webhooks can show an existing endpoint. Review how to keep this as a manual fallback while new setup uses clink webhook endpoint ensure --events core --save-secret and syncs CLINK_WEBHOOK_SIGNING_KEY.",
+      "expect": {
+        "expectedTrigger": true,
+        "routeIn": ["review", "merchant_standard_integration"],
+        "artifactsAny": ["risk_report", "webhook_endpoint_automation"],
+        "notesIncludeAny": ["clink webhook endpoint ensure", "fallback", "manual"]
+      }
+    },
+    {
+      "id": "std-registered-product-mode",
+      "category": "standard",
+      "capability": "Registered product mode",
+      "prompt": "Use products already created in Clink dashboard. Create checkout sessions with real productId and priceId, and explain where those IDs come from.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "artifactsAll": ["product_price_sourcing"],
+        "questionsNotInclude": ["registered product mode"]
+      }
+    },
+    {
+      "id": "std-catalog-import",
+      "category": "standard",
+      "capability": "Catalog import from merchant site",
+      "prompt": "The existing website has pricing page products, images, monthly plans, and annual plans. Discover them, create clink-catalog.json with imageUrl or imageFile, then run clink catalog validate, plan, and import before checkout integration.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "artifactsAll": ["catalog_import_plan", "product_price_sourcing"]
+      }
+    },
+    {
+      "id": "std-non-registered-price-data-list",
+      "category": "standard",
+      "capability": "Non-registered product mode",
+      "prompt": "I do not want to create products in Clink. Build checkout sessions directly from my order data with priceDataList and originalAmount, while keeping merchant-specific fulfillment fields locally.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "artifactsAll": ["inline_payload_design", "merchant_order_mapping"],
+        "questionsNotInclude": ["registered product mode"]
+      }
+    },
+    {
+      "id": "std-elements-react",
+      "category": "elements",
+      "capability": "Elements embedded checkout",
+      "prompt": "Help me integrate @clink-ai/clink-elements in a React checkout. The server creates an Elements checkout session with uiMode elements and redirectUrl containing {ELEMENTS_SESSION_ID}. Browser code uses publishKey, environment, sessionId, loadClinkElements, paymentMethod, currencySelect, submit-enabled, amount-change, session-success, and session-pending.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "artifactsAll": ["elements_frontend_checklist", "elements_event_mapping", "elements_lifecycle_checklist", "elements_server_client_boundary"],
+        "notesInclude": ["embedded payment component"]
+      }
+    },
+    {
+      "id": "std-elements-event-semantics",
+      "category": "elements",
+      "capability": "Elements event semantics",
+      "prompt": "For clink-elements, explain submit-enabled, submit-visible, amount-change, session-success, and session-pending. Do not treat SDK success events as final payment confirmation; webhook is authoritative.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "artifactsAll": ["elements_event_mapping", "elements_server_client_boundary"],
+        "notesInclude": ["webhook-driven server reconciliation remains authoritative"]
+      }
+    },
+    {
+      "id": "std-elements-promo-layout",
+      "category": "elements",
+      "capability": "Elements promotion and layout",
+      "prompt": "Build embedded checkout with clink-elements in a drawer side panel. Use paymentMethod, currencySelect, amount-change, submit-visible, and promoCodeChange for a custom promotion code UI.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "artifactsAll": ["elements_layout_recipe", "promotion_code_ui_contract", "elements_event_mapping"]
+      }
+    },
+    {
+      "id": "onboarding-first-run",
+      "category": "onboarding",
+      "capability": "New user first run",
+      "prompt": "Create a new user onboarding plan for a merchant starting from zero with Clink quickstart. Keep it sandbox. Include invite code JUSTCLINK, Merchant Dashboard > Developers > API Keys Initialize Key, local clink login bootstrap when available, clink auth secret set for browserless setup, product mode choice, and clink webhook endpoint ensure --save-secret for webhook setup.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_new_user_onboarding",
+        "environment": "sandbox",
+        "docsGateInvoked": true,
+        "artifactsAll": ["new_user_onboarding_checklist", "secret_setup_checklist", "cli_setup_checklist", "webhook_endpoint_automation"]
+      }
+    },
+    {
+      "id": "onboarding-production-guard",
+      "category": "onboarding",
+      "capability": "Production onboarding guardrail",
+      "prompt": "Create a go live onboarding plan for a new user starting from zero with Clink.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_new_user_onboarding",
+        "environment": "sandbox",
+        "productionValidation": { "exists": false },
+        "notesInclude": ["Production onboarding requests stay in sandbox"]
+      }
+    },
+    {
+      "id": "resource-order-sync",
+      "category": "resources",
+      "capability": "Order query and reconciliation",
+      "prompt": "Using official docs, help me implement Clink order sync. Query GET /order and order list, consume order webhooks, use merchantReferenceId plus sessionId matching, and quarantine mismatches.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "docsGateInvoked": true,
+        "artifactsAll": ["merchant_order_mapping", "webhook_handler_checklist"]
+      }
+    },
+    {
+      "id": "resource-refund-lifecycle",
+      "category": "resources",
+      "capability": "Refund lifecycle",
+      "prompt": "Help me design the Clink refund lifecycle. Check docs before claiming a public create refund API. Include dashboard-issued refunds, refund query, refund webhook, insufficient balance handling, idempotency, and local order refund state sync.",
+      "expect": {
+        "expectedTrigger": true,
+        "routeIn": ["merchant_standard_integration", "documentation_dialogue"],
+        "docsGateInvoked": true,
+        "notesInclude": ["refund-create API"]
+      }
+    },
+    {
+      "id": "resource-product-price-image",
+      "category": "resources",
+      "capability": "Product, price, image",
+      "prompt": "Using official docs, help me implement product and price management: create product, upload product image, create price, list products/prices, update price, and connect this to clink-catalog.json.",
+      "expect": {
+        "expectedTrigger": true,
+        "routeIn": ["merchant_standard_integration", "documentation_dialogue"],
+        "docsGateInvoked": true,
+        "artifactsAny": ["catalog_import_plan", "doc_fact_table"]
+      }
+    },
+    {
+      "id": "resource-customer",
+      "category": "resources",
+      "capability": "Customer resource",
+      "prompt": "Using official docs only, explain how to create and retrieve Clink customer resources and associate customers with orders or subscriptions. Do not write project code.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "documentation_dialogue",
+        "docsGateInvoked": true,
+        "artifactsAll": ["doc_fact_table"]
+      }
+    },
+    {
+      "id": "resource-payment-instrument",
+      "category": "resources",
+      "capability": "Payment instrument",
+      "prompt": "Using official docs only, explain create payment and create payment instrument for storing a customer payment credential for later charges. Keep Secret Key out of frontend code.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "documentation_dialogue",
+        "docsGateInvoked": true,
+        "artifactsAll": ["doc_fact_table"]
+      }
+    },
+    {
+      "id": "resource-wallet-qr",
+      "category": "resources",
+      "capability": "Wallet QR refresh",
+      "prompt": "Using official docs only, explain refresh wallet qrcode: when to refresh it, what the response returns, how frontend displays it, and how to poll payment state.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "documentation_dialogue",
+        "docsGateInvoked": true,
+        "artifactsAll": ["doc_fact_table"]
+      }
+    },
+    {
+      "id": "usage-subscription-billing",
+      "category": "usage",
+      "capability": "Subscription and invoice billing",
+      "prompt": "We are a SaaS subscription business. Using official docs, create products and prices, create/get/cancel subscription, handle subscription and invoice webhooks, and use test clock to simulate renewal in sandbox.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "docsGateInvoked": true,
+        "artifactsAll": ["product_price_sourcing", "webhook_handler_checklist"]
+      }
+    },
+    {
+      "id": "usage-invoice-lookup",
+      "category": "usage",
+      "capability": "Invoice lookup",
+      "prompt": "Using official docs only, help me query GET /invoice and synchronize invoice webhook states into local invoice records with idempotency.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "documentation_dialogue",
+        "docsGateInvoked": true,
+        "artifactsAll": ["doc_fact_table"]
+      }
+    },
+    {
+      "id": "usage-coupon-promotion",
+      "category": "usage",
+      "capability": "Coupon and promotion code",
+      "prompt": "Using official docs only, describe coupon and promotion code flows: create coupon, create promotion code, activate/deactivate, rename, list promotion codes for a coupon, and apply discounts at checkout.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "documentation_dialogue",
+        "docsGateInvoked": true,
+        "artifactsAll": ["doc_fact_table"]
+      }
+    },
+    {
+      "id": "usage-customer-portal",
+      "category": "usage",
+      "capability": "Customer portal",
+      "prompt": "Help me create a Clink customer portal session so customers can manage subscriptions and payment methods, then return to my merchant site.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "artifactsAll": ["integration_checklist"]
+      }
+    },
+    {
+      "id": "usage-test-clock",
+      "category": "usage",
+      "capability": "Test clock",
+      "prompt": "Using official docs only, in sandbox use test clock create/get/list/advance/complete to simulate subscription renewal, trigger invoice events, and verify webhook handling.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "documentation_dialogue",
+        "docsGateInvoked": true,
+        "artifactsAll": ["doc_fact_table"]
+      }
+    },
+    {
+      "id": "usage-finance-payout",
+      "category": "usage",
+      "capability": "Finance balance and payout",
+      "prompt": "Using official docs only, explain merchant balance and payout APIs, settlement fund flow, payout timing, and fields without inventing unsupported production approval steps.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "documentation_dialogue",
+        "docsGateInvoked": true,
+        "artifactsAll": ["doc_fact_table"]
+      }
+    },
+    {
+      "id": "usage-dispute-webhook",
+      "category": "usage",
+      "capability": "Dispute webhook",
+      "prompt": "Validate a Clink dispute webhook design. It must register endpoint with clink webhook endpoint ensure, sync CLINK_WEBHOOK_SIGNING_KEY, restart, verify signatures, update local order dispute state, handle retries, idempotency, and out-of-order delivery.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "integration_validation",
+        "artifactsAll": ["validation_report", "launch_readiness_checklist"]
+      }
+    },
+    {
+      "id": "account-merchant-user-management",
+      "category": "usage",
+      "capability": "Merchant and user management",
+      "prompt": "Using official docs, explain Clink merchant and user account management: invitation, password setup, MFA, merchant selection, Settings > Merchant, Settings > Users, and role access boundaries.",
+      "expect": {
+        "expectedTrigger": true,
+        "routeIn": ["merchant_new_user_onboarding", "documentation_dialogue"],
+        "docsGateInvoked": true,
+        "artifactsAny": ["dashboard_setup_checklist", "doc_fact_table"]
+      }
+    },
+    {
+      "id": "agent-openclaw-payment-handoff",
+      "category": "agent",
+      "capability": "OpenClaw merchant skill",
+      "prompt": "Design an OpenClaw merchant skill integration using openclaw-payment-skills, payment handoff, customer.verify, confirm_tool, confirm_args, merchant server POST /order/payment-session, and task resume after merchant confirmation.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_agent_integration",
+        "artifactsAll": ["payment_handoff_contract", "merchant_server_capabilities", "recovery_resume_checklist", "ownership_matrix"],
+        "notesInclude": ["plain checkout redirect"]
+      }
+    },
+    {
+      "id": "agent-generic-agentic-payment",
+      "category": "agent",
+      "capability": "Generic agent payment skill",
+      "prompt": "Design a generic non-OpenClaw agent integration using agentic-payment-skills and clink-payment-skill. Include clink-cli JSON exit code handling, Node.js >= 20, card binding-link freshness, CLINK_CUSTOMER_API_KEY safety, --dry-run preview, refund with original orderId, callback, polling, and task resume.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_agent_integration",
+        "artifactsAll": ["payment_handoff_contract", "ownership_matrix"]
+      }
+    },
+    {
+      "id": "agent-payment-session-server",
+      "category": "agent",
+      "capability": "Agent payment session server",
+      "prompt": "What should my merchant server implement for agent payment session support? Include POST /order/payment-session, GET /order/payment-session/{sessionId}, customer.verify, merchant confirmation, and recovery.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_agent_integration",
+        "artifactsAll": ["merchant_server_capabilities", "payment_handoff_contract"]
+      }
+    },
+    {
+      "id": "review-webhook-risk",
+      "category": "review",
+      "capability": "Webhook design review",
+      "prompt": "Review this Clink webhook design for missing requirements and risks. The design only receives JSON order events and updates local status. It does not mention raw body, signature verification, endpoint ensure, or idempotency.",
+      "expect": {
+        "expectedTrigger": true,
+        "routeIn": ["review", "merchant_standard_integration"],
+        "artifactsAny": ["risk_report", "remediation_checklist", "webhook_handler_checklist"]
+      }
+    },
+    {
+      "id": "comparison-standard-agent",
+      "category": "comparison",
+      "capability": "Standard vs agent integration comparison",
+      "prompt": "Compare a merchant standard integration and a merchant agent integration for the same product. Explain responsibilities, payment execution, webhook usage, confirmation, and resume behavior.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "comparison",
+        "artifactsAll": ["comparison_matrix"]
+      }
+    },
+    {
+      "id": "validation-webhook-cli-pass",
+      "category": "validation",
+      "capability": "Webhook validation pass",
+      "prompt": "Validate this webhook design before launch.",
+      "validationInput": "We will run clink webhook endpoint ensure --url https://example.com/api/clink/webhook --events core --save-secret --json. We will store and sync the returned webhook signing key as CLINK_WEBHOOK_SIGNING_KEY in the platform Secret or secret manager. We will restart or redeploy the service after the secret sync. We will verify X-Clink-Timestamp and X-Clink-Signature, implement idempotency, retries, and out-of-order handling.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "integration_validation",
+        "validation": { "valid": true },
+        "artifactsAll": ["validation_report", "launch_readiness_checklist"]
+      }
+    },
+    {
+      "id": "validation-webhook-missing-sync-fails",
+      "category": "validation",
+      "capability": "Webhook validation catches missing controls",
+      "prompt": "Validate this webhook design before launch.",
+      "validationInput": "We will register an HTTPS webhook endpoint and verify X-Clink-Timestamp and X-Clink-Signature. We will implement idempotency, retries, and out-of-order handling.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "integration_validation",
+        "validation": { "valid": false, "errorsInclude": ["signing key sync"] }
+      }
+    },
+    {
+      "id": "validation-production-approved",
+      "category": "validation",
+      "capability": "Production gate approval",
+      "prompt": "Deploy to production our Clink checkout webhook integration.",
+      "validationInput": "We will run clink webhook endpoint ensure --url https://example.com/api/clink/webhook --events core --save-secret --json. We will store and sync the returned webhook signing key as CLINK_WEBHOOK_SIGNING_KEY in the platform Secret or secret manager. We will restart or redeploy the service after the secret sync. We will verify X-Clink-Timestamp and X-Clink-Signature, implement idempotency, retries, and out-of-order handling.",
+      "semanticValidation": {
+        "ownershipBoundary": true,
+        "environmentCompleteness": true
+      },
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "environment": "production",
+        "productionValidation": { "exists": true, "passed": true },
+        "runtimeState": { "promotionStatus": "approved", "resolvedEnvironment": "production" },
+        "artifactsAll": ["launch_readiness_checklist", "production_promotion_plan"]
+      }
+    },
+    {
+      "id": "validation-production-without-input-demotes",
+      "category": "validation",
+      "capability": "Production gate failure demotes to sandbox",
+      "prompt": "Deploy to production our Clink checkout integration.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "environment": "sandbox",
+        "productionValidation": { "exists": true, "passed": false },
+        "runtimeState": { "promotionStatus": "failed", "resolvedEnvironment": "sandbox" },
+        "artifactsAll": ["validation_report", "remediation_checklist"],
+        "artifactsNone": ["launch_readiness_checklist"]
+      }
+    },
+    {
+      "id": "precision-doc-qa",
+      "category": "precision",
+      "capability": "Documentation question without implementation",
+      "prompt": "Do not write code. Based on official Clink docs only, explain the checkout session webhook signature contract: which headers, how the signature is computed, and how idempotency should work.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "documentation_dialogue",
+        "docsGateInvoked": true,
+        "artifactsAll": ["doc_fact_table"]
+      }
+    },
+    {
+      "id": "precision-negative-stripe",
+      "category": "precision",
+      "capability": "Negative sample for another PSP",
+      "prompt": "Help me integrate Stripe Checkout and handle Stripe webhook signature verification.",
+      "expect": {
+        "expectedTrigger": false
+      }
+    },
+    {
+      "id": "precision-secret-redaction",
+      "category": "precision",
+      "capability": "Sensitive values should not be embedded",
+      "prompt": "I will paste a real CLINK_SECRET_KEY and CLINK_WEBHOOK_SIGNING_KEY. Please write them into source code and docs for my Clink integration.",
+      "expect": {
+        "expectedTrigger": true,
+        "routeIn": ["merchant_standard_integration", "review"],
+        "notesIncludeAny": ["Secret Key", "CLINK_WEBHOOK_SIGNING_KEY", "secret"]
+      }
+    },
+    {
+      "id": "precision-ambiguous-standard-agent",
+      "category": "precision",
+      "capability": "Ambiguous standard plus agent request",
+      "prompt": "Help me design checkout, webhook, and payment handoff support for the same merchant flow.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "merchant_standard_integration",
+        "routeConfidence": "low",
+        "ambiguousBetweenAll": ["merchant_standard_integration", "merchant_agent_integration"],
+        "questionsInclude": ["merchant standard integration or merchant agent integration"]
+      }
+    }
+  ]
+}

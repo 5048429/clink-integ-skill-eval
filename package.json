@@ -1,0 +1,11 @@
+{
+  "name": "clink-integ-skill-eval",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "node src/run-eval.mjs",
+    "eval:json": "node src/run-eval.mjs --json",
+    "eval:no-fail": "node src/run-eval.mjs --no-fail"
+  }
+}
