@@ -256,6 +256,8 @@ function recommendCaseFix(result) {
       return "Add explicit runtime wording that Dashboard Webhooks is only fallback/manual/visibility while CLI endpoint ensure remains primary.";
     case "std-catalog-import":
       return "Route pricing-page/catalog-import prompts to standard integration and emit catalog import plus product/price sourcing artifacts.";
+    case "std-external-psp-link":
+      return "Add docs-gated handling for external PSP orchestration link_psp prompts, including checkout routing and settlement facts without unsupported behavior.";
     case "resource-order-sync":
       return "Treat order sync with webhook reconciliation as a standard integration task when implementation and merchant order mapping are requested.";
     case "resource-refund-lifecycle":

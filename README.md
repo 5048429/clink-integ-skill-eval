@@ -17,6 +17,7 @@ surface:
 - catalog import and product discovery
 - Elements embedded checkout
 - resource/documentation guidance
+- external PSP account linking for payment orchestration
 - subscription, invoice, coupon, portal, wallet, finance, and dispute flows
 - new user onboarding
 - generic and OpenClaw agent integration paths
@@ -131,7 +132,7 @@ Each case can assert:
 
 ## Detailed Evaluation Cases
 
-The default matrix contains 42 capability cases. The table below mirrors
+The default matrix contains 43 capability cases. The table below mirrors
 `cases\clink-integ-capability-matrix.json` so the repository landing page
 documents exactly what is being scored.
 
@@ -147,6 +148,7 @@ documents exactly what is being scored.
 | standard | `std-registered-product-mode` | Registered product mode | Standard route, emits product/price sourcing, does not ask product-mode question when mode is explicit. |
 | standard | `std-catalog-import` | Catalog import from merchant site | Standard route, emits catalog import plan and product/price sourcing. |
 | standard | `std-non-registered-price-data-list` | Non-registered product mode | Standard route, emits inline payload design and merchant order mapping, avoids product-mode question. |
+| standard | `std-external-psp-link` | External PSP account linking for orchestration | Documentation dialogue, docs gate, docs fact table for `guides/payments/link_psp`, avoids invented routing or settlement behavior. |
 | elements | `std-elements-react` | Elements embedded checkout | Standard route, emits Elements frontend/event/lifecycle/server-client artifacts and embedded component note. |
 | elements | `std-elements-event-semantics` | Elements event semantics | Standard route, checks submit/event mapping and webhook-authoritative note. |
 | elements | `std-elements-promo-layout` | Elements promotion and layout | Standard route, emits layout recipe, promotion-code UI contract, and event mapping. |

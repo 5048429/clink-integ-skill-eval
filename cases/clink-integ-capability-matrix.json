@@ -18,7 +18,7 @@
       "id": "std-hosted-checkout-webhook-cli",
       "category": "standard",
       "capability": "Hosted checkout plus webhook, CLI-first",
-      "prompt": "Help this Node/React merchant integrate Clink sandbox hosted checkout. Add POST /api/clink/checkout-session and POST /api/clink/webhook. Use clink-dev-cli, clink webhook endpoint ensure --events core --save-secret, sync CLINK_WEBHOOK_SIGNING_KEY, restart the service, verify raw body signatures, and reconcile merchantReferenceId plus sessionId.",
+      "prompt": "Help this Node/React merchant integrate Clink sandbox hosted checkout. Add POST /api/clink/checkout-session and POST /api/clink/webhook. Use clink-integ-cli, clink webhook endpoint ensure --events core --save-secret, sync CLINK_WEBHOOK_SIGNING_KEY, restart the service, verify raw body signatures, and reconcile merchantReferenceId plus sessionId.",
       "expect": {
         "expectedTrigger": true,
         "route": "merchant_standard_integration",
@@ -139,6 +139,18 @@
         "route": "merchant_standard_integration",
         "artifactsAll": ["inline_payload_design", "merchant_order_mapping"],
         "questionsNotInclude": ["registered product mode"]
+      }
+    },
+    {
+      "id": "std-external-psp-link",
+      "category": "standard",
+      "capability": "External PSP account linking for orchestration",
+      "prompt": "Using official Clink docs only, explain how to link an external PSP account for Clink payment orchestration according to guides/payments/link_psp. Include what the merchant must configure, how this affects checkout/payment routing and settlement, and do not invent unsupported behavior.",
+      "expect": {
+        "expectedTrigger": true,
+        "route": "documentation_dialogue",
+        "docsGateInvoked": true,
+        "artifactsAll": ["doc_fact_table"]
       }
     },
     {
