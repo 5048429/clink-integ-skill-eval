@@ -10,12 +10,17 @@ const defaultReportPath = path.join(repoRoot, "reports", "latest-report.json");
 
 function parseArgs(argv) {
   const args = argv.slice(2);
+  const reportPath = valueAfter(args, "--report") || defaultReportPath;
   return {
     json: args.includes("--json"),
     noFail: args.includes("--no-fail"),
     skillRoot: valueAfter(args, "--skill-root") || process.env.CLINK_SKILL_ROOT || defaultSkillRoot,
     casesPath: valueAfter(args, "--cases") || defaultCasesPath,
-    reportPath: valueAfter(args, "--report") || defaultReportPath,
+    reportPath,
+    markdownReportPath:
+      valueAfter(args, "--report-md") ||
+      valueAfter(args, "--markdown-report") ||
+      replaceReportExtension(reportPath, ".md"),
   };
 }
 
@@ -28,6 +33,11 @@ function ensureFile(filePath, label) {
   if (!fs.existsSync(filePath)) {
     throw new Error(`${label} not found: ${filePath}`);
   }
+}
+
+function replaceReportExtension(filePath, extension) {
+  const parsed = path.parse(filePath);
+  return path.join(parsed.dir, `${parsed.name}${extension}`);
 }
 
 async function loadSkillRuntime(skillRoot) {
@@ -203,6 +213,73 @@ function summarize(results, metadata, skillRoot) {
   };
 }
 
+function buildConclusion(summary, results) {
+  const failed = results.filter((item) => !item.passed);
+  const passingCategories = Object.entries(summary.categoryStats)
+    .filter(([, stats]) => stats.failed === 0)
+    .map(([category]) => category);
+  const failedCategories = Object.entries(summary.categoryStats)
+    .filter(([, stats]) => stats.failed > 0)
+    .sort((a, b) => b[1].failed - a[1].failed)
+    .map(([category, stats]) => `${category} (${stats.failed} failed)`);
+
+  let status = "PASS";
+  let headline = "The skill passes the full capability matrix.";
+  if (summary.failed > 0 && summary.passRate >= 85) {
+    status = "STRONG_WITH_GAPS";
+    headline = "The skill is strong overall, with a small number of capability gaps.";
+  } else if (summary.failed > 0 && summary.passRate >= 70) {
+    status = "USABLE_WITH_GAPS";
+    headline = "The skill is usable for core integration work, but several capability gaps should be fixed before treating it as comprehensive.";
+  } else if (summary.failed > 0) {
+    status = "NEEDS_WORK";
+    headline = "The skill needs substantial improvement before it should be used as a broad Clink integration assistant.";
+  }
+
+  return {
+    status,
+    headline,
+    score: `${summary.passed}/${summary.total} (${summary.passRate}%)`,
+    strengths: passingCategories,
+    priorityAreas: failedCategories,
+    recommendedFixes: dedupe(failed.map(recommendCaseFix)).slice(0, 8),
+  };
+}
+
+function dedupe(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function recommendCaseFix(result) {
+  switch (result.id) {
+    case "std-dashboard-fallback-not-primary":
+      return "Add explicit runtime wording that Dashboard Webhooks is only fallback/manual/visibility while CLI endpoint ensure remains primary.";
+    case "std-catalog-import":
+      return "Route pricing-page/catalog-import prompts to standard integration and emit catalog import plus product/price sourcing artifacts.";
+    case "resource-order-sync":
+      return "Treat order sync with webhook reconciliation as a standard integration task when implementation and merchant order mapping are requested.";
+    case "resource-refund-lifecycle":
+      return "Invoke the docs gate for refund lifecycle prompts and preserve the warning when public refund-create API is not confirmed.";
+    case "usage-subscription-billing":
+      return "Route subscription billing prompts to standard integration when product/price setup plus webhook handling is requested.";
+    case "agent-generic-agentic-payment":
+      return "Recognize agentic-payment-skills and clink-payment-skill as generic agent integration signals, not standard checkout.";
+    case "precision-doc-qa":
+      return "Honor docs-only/no-code prompts by routing to documentation dialogue and emitting a docs fact table.";
+    case "precision-negative-stripe":
+      return "Add negative-trigger detection for non-Clink PSP prompts such as Stripe-only checkout and webhook requests.";
+    default: {
+      const text = result.failures.join(" ");
+      if (/expected route/.test(text)) return "Adjust route detection for this prompt shape.";
+      if (/docsGateInvoked/.test(text)) return "Add docs-gate triggering for this exact API/resource claim.";
+      if (/missing artifact/.test(text)) return "Emit the missing runtime artifact for this scenario.";
+      if (/notes missing/.test(text)) return "Add an explicit runtime note for the required guidance.";
+      if (/validation/.test(text)) return "Update validation logic or expected validation output.";
+      return "Inspect the case assertions and align runtime routing, notes, questions, or artifacts.";
+    }
+  }
+}
+
 function compactPayload(payload) {
   return {
     route: payload.route,
@@ -221,9 +298,169 @@ function compactPayload(payload) {
   };
 }
 
-function printHuman(summary, results, reportPath) {
+function passRate(passed, total) {
+  return total === 0 ? 0 : Math.round((passed / total) * 1000) / 10;
+}
+
+function statusForStats(stats) {
+  if (stats.failed === 0) return "PASS";
+  const rate = passRate(stats.passed, stats.total);
+  if (rate >= 85) return "STRONG_WITH_GAPS";
+  if (rate >= 70) return "USABLE_WITH_GAPS";
+  return "NEEDS_WORK";
+}
+
+function failureSummary(result) {
+  if (!result.failures || result.failures.length === 0) return "";
+  return truncate(result.failures.join("; "), 220);
+}
+
+function truncate(value, maxLength) {
+  const text = String(value || "");
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 3)}...`;
+}
+
+function escapeMarkdownCell(value) {
+  return String(value ?? "")
+    .replace(/\r?\n/g, "<br>")
+    .replace(/\|/g, "\\|");
+}
+
+function markdownRow(cells) {
+  return `| ${cells.map(escapeMarkdownCell).join(" | ")} |`;
+}
+
+function artifactPreview(result) {
+  const artifacts = result.artifacts || [];
+  if (artifacts.length === 0) return "";
+  const preview = artifacts.slice(0, 5).join(", ");
+  return artifacts.length > 5 ? `${preview}, ...` : preview;
+}
+
+function buildMarkdownReport(report) {
+  const { generatedAt, metadata, summary, conclusion, results } = report;
+  const failed = results.filter((item) => !item.passed);
+  const lines = [];
+
+  lines.push("# Clink Integration Skill Evaluation Report");
+  lines.push("");
+  lines.push(`Generated at: ${generatedAt}`);
+  lines.push(`Target skill: ${summary.skillRoot}`);
+  lines.push(`Matrix: ${metadata.name || "unknown"} v${metadata.version ?? "unknown"}`);
+  lines.push("");
+  lines.push("## Executive Conclusion");
+  lines.push("");
+  lines.push(markdownRow(["Metric", "Value"]));
+  lines.push(markdownRow(["---", "---"]));
+  lines.push(markdownRow(["Overall status", conclusion.status]));
+  lines.push(markdownRow(["Score", conclusion.score]));
+  lines.push(markdownRow(["Passed", summary.passed]));
+  lines.push(markdownRow(["Failed", summary.failed]));
+  lines.push("");
+  lines.push(conclusion.headline);
+  lines.push("");
+  lines.push("Strengths:");
+  for (const item of conclusion.strengths.length > 0 ? conclusion.strengths : ["No category fully passed."]) {
+    lines.push(`- ${item}`);
+  }
+  lines.push("");
+  lines.push("Priority gaps:");
+  for (const item of conclusion.priorityAreas.length > 0 ? conclusion.priorityAreas : ["No priority gaps."]) {
+    lines.push(`- ${item}`);
+  }
+  lines.push("");
+  lines.push("Recommended next fixes:");
+  for (const item of conclusion.recommendedFixes.length > 0 ? conclusion.recommendedFixes : ["No fixes required."]) {
+    lines.push(`- ${item}`);
+  }
+  lines.push("");
+
+  lines.push("## Category Summary");
+  lines.push("");
+  lines.push(markdownRow(["Category", "Passed", "Failed", "Total", "Pass Rate", "Status"]));
+  lines.push(markdownRow(["---", "---:", "---:", "---:", "---:", "---"]));
+  for (const [category, stats] of Object.entries(summary.categoryStats)) {
+    lines.push(markdownRow([
+      category,
+      stats.passed,
+      stats.failed,
+      stats.total,
+      `${passRate(stats.passed, stats.total)}%`,
+      statusForStats(stats),
+    ]));
+  }
+  lines.push("");
+
+  lines.push("## Route Summary");
+  lines.push("");
+  lines.push(markdownRow(["Route", "Passed", "Failed", "Total", "Pass Rate"]));
+  lines.push(markdownRow(["---", "---:", "---:", "---:", "---:"]));
+  for (const [route, stats] of Object.entries(summary.routeStats)) {
+    lines.push(markdownRow([
+      route,
+      stats.passed,
+      stats.failed,
+      stats.total,
+      `${passRate(stats.passed, stats.total)}%`,
+    ]));
+  }
+  lines.push("");
+
+  lines.push("## Failed Cases And Suggested Fixes");
+  lines.push("");
+  if (failed.length === 0) {
+    lines.push("All cases passed.");
+  } else {
+    lines.push(markdownRow(["Category", "Case", "Capability", "Actual Route", "Failure Summary", "Suggested Fix"]));
+    lines.push(markdownRow(["---", "---", "---", "---", "---", "---"]));
+    for (const result of failed) {
+      lines.push(markdownRow([
+        result.category,
+        result.id,
+        result.capability,
+        result.route,
+        failureSummary(result),
+        recommendCaseFix(result),
+      ]));
+    }
+  }
+  lines.push("");
+
+  lines.push("## Full Case Results");
+  lines.push("");
+  lines.push(markdownRow(["Status", "Category", "Case", "Capability", "Route", "Environment", "Docs Gate", "Artifacts"]));
+  lines.push(markdownRow(["---", "---", "---", "---", "---", "---", "---", "---"]));
+  for (const result of results) {
+    lines.push(markdownRow([
+      result.passed ? "PASS" : "FAIL",
+      result.category,
+      result.id,
+      result.capability,
+      result.route,
+      result.environment || "",
+      result.docsGateInvoked ? "yes" : "no",
+      artifactPreview(result),
+    ]));
+  }
+  lines.push("");
+
+  lines.push("## Evaluation Standards");
+  lines.push("");
+  for (const standard of metadata.standards || []) {
+    lines.push(`- ${standard}`);
+  }
+  lines.push("");
+  lines.push("Raw JSON remains available beside this report for automation and diffing.");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
+function printHuman(summary, conclusion, results, reportPath, markdownReportPath) {
   console.log(`Comprehensive capability evaluation: ${summary.passed}/${summary.total} passed (${summary.passRate}%)`);
   console.log(`Target skill: ${summary.skillRoot}`);
+  console.log(`Conclusion: ${conclusion.status} - ${conclusion.headline}`);
   console.log("\nCategory results:");
   for (const [category, stats] of Object.entries(summary.categoryStats)) {
     console.log(`- ${category}: ${stats.passed}/${stats.total} passed`);
@@ -242,7 +479,8 @@ function printHuman(summary, results, reportPath) {
     }
   }
 
-  console.log(`\nReport: ${reportPath}`);
+  console.log(`\nJSON report: ${reportPath}`);
+  console.log(`Markdown report: ${markdownReportPath}`);
 }
 
 async function main() {
@@ -276,20 +514,24 @@ async function main() {
   }
 
   const summary = summarize(results, suite.metadata || {}, skillRoot);
+  const conclusion = buildConclusion(summary, results);
   const report = {
     generatedAt: new Date().toISOString(),
     metadata: suite.metadata || {},
     summary,
+    conclusion,
     results,
   };
 
   fs.mkdirSync(path.dirname(options.reportPath), { recursive: true });
   fs.writeFileSync(options.reportPath, JSON.stringify(report, null, 2), "utf8");
+  fs.mkdirSync(path.dirname(options.markdownReportPath), { recursive: true });
+  fs.writeFileSync(options.markdownReportPath, buildMarkdownReport(report), "utf8");
 
   if (options.json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
-    printHuman(summary, results, options.reportPath);
+    printHuman(summary, conclusion, results, options.reportPath, options.markdownReportPath);
   }
 
   if (!options.noFail && summary.failed > 0) {

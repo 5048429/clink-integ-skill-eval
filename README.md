@@ -40,6 +40,16 @@ From this repository:
 npm run eval:no-fail
 ```
 
+Equivalent report-focused alias:
+
+```powershell
+npm run eval:report
+```
+
+This writes both a machine-readable JSON report and a human-readable Markdown
+report with conclusion, category tables, failed-case tables, and suggested
+fixes.
+
 By default it evaluates:
 
 ```text
@@ -68,11 +78,35 @@ Reports are written to:
 
 ```text
 reports\latest-report.json
+reports\latest-report.md
+```
+
+To choose report output paths:
+
+```powershell
+npm run eval:no-fail -- --report reports\my-run.json --report-md reports\my-run.md
 ```
 
 The command evaluates the default local skill at
 `..\agent-prompts\skills\clink-integ-skills`. Use `--skill-root` when comparing
 another skill copy, including a temporary clone of an official repository.
+
+## Human-Readable Report
+
+The Markdown report is intended for review and planning. It includes:
+
+- executive conclusion with an overall status such as `PASS`, `STRONG_WITH_GAPS`, `USABLE_WITH_GAPS`, or `NEEDS_WORK`
+- score summary and pass rate
+- fully passed categories as strengths
+- failed categories as priority gaps
+- recommended next fixes inferred from failed cases
+- category summary table
+- route summary table
+- failed-case table with failure summary and suggested fix
+- full case-result table for all matrix cases
+
+Use the JSON report for automation, and use the Markdown report for human
+review, team discussion, and deciding the next skill-improvement sprint.
 
 ## Evaluation Data
 

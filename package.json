@@ -6,6 +6,7 @@
   "scripts": {
     "eval": "node src/run-eval.mjs",
     "eval:json": "node src/run-eval.mjs --json",
-    "eval:no-fail": "node src/run-eval.mjs --no-fail"
+    "eval:no-fail": "node src/run-eval.mjs --no-fail",
+    "eval:report": "node src/run-eval.mjs --no-fail"
   }
 }
